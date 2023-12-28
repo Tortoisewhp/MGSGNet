@@ -398,7 +398,7 @@ class MGSGNet_S(nn.Module):
         #stage4
         x4_1 = x[3]
         x4_1_depth = x_depth[3]
-        #decoder
+        #fused and decoder
         x1_1 = self.cafm1(x1, x1_depth)
         x2_1 = self.cafm2(x2, x2_depth)
         x3_1 = self.cafm3(x3_1, x3_1_depth)
