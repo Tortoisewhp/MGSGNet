@@ -19,6 +19,33 @@ class BasicConv2d(nn.Module):
         x = self.bn(x)
         return x
 
+class CAFM(nn.Module):
+    def __init__(self,channel):
+        super(CAFM, self).__init__()
+        self.channel=channel
+        self.Rmlp=nn.Conv2d(self.channel,1,1,1,0)
+        self.Dmlp = nn.Conv2d(self.channel, 1, 1, 1, 0)
+        self.Rpa=nn.Linear(26*26,self.channel)
+        self.Dpa = nn.Linear(26*26,self.channel)
+    def forward(self, rgbFeature,depthFeature):
+        b,c,h,w=rgbFeature.shape
+
+        thea=self.Rmlp(rgbFeature)
+        beta = self.Dmlp(depthFeature)
+        thea=F.interpolate(thea,size=(26, 26), mode='bilinear')
+        beta = F.interpolate(beta, size=(26, 26), mode='bilinear')
+        rgbthea=nn.Tanh()(thea+beta)
+        depthbeta=nn.Tanh()(thea+beta)
+        rgbM=torch.matmul(thea.reshape(b,1,26*26).permute(0,2,1),rgbthea.reshape(b,1,26*26))
+        depthM = torch.matmul(beta.reshape(b, 1, 26 * 26).permute(0, 2, 1), depthbeta.reshape(b, 1, 26 * 26))
+        rgbM=self.Rpa(rgbM).reshape(b,26*26,self.channel).permute(0,2,1).reshape(b,self.channel,26,26)
+        depthM=self.Dpa(depthM).reshape(b,26*26,self.channel).permute(0,2,1).reshape(b,self.channel,26,26)
+        rgbM = F.interpolate(rgbM, size=(h, w), mode='bilinear')
+        depthM = F.interpolate(depthM, size=(h, w), mode='bilinear')
+        rgbM=rgbM*rgbFeature+rgbFeature
+        depthM=depthM*depthFeature+depthFeature
+        fused=nn.Sigmoid()(rgbM*depthM)*rgbFeature+rgbFeature
+        return fused
 
 class NLC(nn.Module):
     def __init__(self, in_channel, out_channel):
@@ -317,7 +344,10 @@ class MGSGNet_T(nn.Module):
         self.rgb.init_weights("/home/wby/Desktop/MGSGNet/toolbox/models/MGSGNet/segformer/pretrained/mit_b4.pth")
         self.depth = mit_b4()
         self.depth.init_weights("/home/wby/Desktop/MGSGNet/toolbox/models/MGSGNet/segformer/pretrained/mit_b4.pth")
-
+        self.cafm1=CAFM(64)
+        self.cafm2 = CAFM(128)
+        self.cafm3 = CAFM(320)
+        self.cafm4 = CAFM(512)
         # Decoder
         self.nlc = NLC(512,512)
         self.sgm = SGM_t(channel)
@@ -338,11 +368,11 @@ class MGSGNet_T(nn.Module):
         #stage4
         x4_1 = x[3]
         x4_1_depth = x_depth[3]
-        #decoder
-        x1_1=x1+x1_depth
-        x2_1 = x2+x2_depth
-        x3_1 = x3_1+x3_1_depth
-        x4_1 = x4_1+x4_1_depth
+        #fused and decoder
+        x1_1 = self.cafm1(x1, x1_depth)
+        x2_1 = self.cafm2(x2, x2_depth)
+        x3_1 = self.cafm3(x3_1, x3_1_depth)
+        x4_1 = self.cafm4(x4_1, x4_1_depth)
         x4_2 = self.nlc(x4_1)
         y = self.sgm(x4_2,x4_1,x3_1,x2_1, x1_1)
         return y
