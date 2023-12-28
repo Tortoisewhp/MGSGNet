@@ -30,10 +30,7 @@ class CAFM(nn.Module):
         self.Dpa = nn.Linear(26*26,self.channel)
     def forward(self, rgbFeature,depthFeature):
         b,c,h,w=rgbFeature.shape
-        # if rgbFeature.shape[2]==52 or rgbFeature.shape[2]==104:
-        #     rgbFeature=F.interpolate(rgbFeature,size=(26, 26), mode='bilinear')
-        #     depthFeature = F.interpolate(depthFeature, size=(26, 26), mode='bilinear')
-        #b, c, h, w = rgbFeature.shape
+
         thea=self.Rmlp(rgbFeature)
         beta = self.Dmlp(depthFeature)
         thea=F.interpolate(thea,size=(26, 26), mode='bilinear')
