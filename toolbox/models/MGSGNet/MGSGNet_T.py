@@ -19,6 +19,7 @@ class BasicConv2d(nn.Module):
         x = self.bn(x)
         return x
 
+
 class NLC(nn.Module):
     def __init__(self, in_channel, out_channel):
         super(NLC, self).__init__()
@@ -308,9 +309,9 @@ class SGM_t(nn.Module):
 
 
 
-class MGSGNet_teacher(nn.Module):
+class MGSGNet_T(nn.Module):
     def __init__(self, channel=64):
-        super(MGSGNet_teacher, self).__init__()
+        super(MGSGNet_T, self).__init__()
         # Backbone
         self.rgb = mit_b4()
         self.rgb.init_weights("/home/wby/Desktop/MGSGNet/toolbox/models/MGSGNet/segformer/pretrained/mit_b4.pth")
@@ -351,7 +352,7 @@ class MGSGNet_teacher(nn.Module):
 if __name__ == '__main__':
     img = torch.randn(1, 3, 480 ,640).cuda()
     depth = torch.randn(1, 3, 480 ,640).cuda()
-    model = MGSGNet_teacher().to(torch.device("cuda:0"))
+    model = MGSGNet_T().to(torch.device("cuda:0"))
     Total_params = 0
     Trainable_params = 0
     NonTrainable_params = 0
