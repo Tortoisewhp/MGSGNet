@@ -9,6 +9,7 @@ def CMR(featureX,featureY):
     out=torch.softmax(out,2)
     return out
 
+
 if __name__ == '__main__':
     r1_1 = torch.randn(1, 320, 13 ,13)
     r1_2 = torch.randn(1, 320, 13 ,13)
