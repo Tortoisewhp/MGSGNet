@@ -47,7 +47,6 @@ class CAFM(nn.Module):
         depthM=depthM*depthFeature+depthFeature
         fused=nn.Sigmoid()(rgbM*depthM)*rgbFeature+rgbFeature
         return fused
-
 class NLC(nn.Module):
     def __init__(self, in_channel, out_channel):
         super(NLC, self).__init__()
@@ -86,27 +85,6 @@ class NLC(nn.Module):
 
         x = self.relu(x_cat + self.conv_res(x))
         return x
-
-
-class EGCN(nn.Module):
-    def __init__(self, in_channels=256,in_channel=32, out_channel=32):
-        super(EGCN, self).__init__()
-        self.branch0 = nn.Sequential(
-            BasicConv2d(in_channel*2, out_channel, 3,padding=1),
-            BasicConv2d(in_channel, out_channel, 3,padding=1)
-        )
-        self.conv3_1=nn.Conv2d(in_channels,in_channel,1)
-        self.conv3_2 = nn.Conv2d(in_channel, in_channel, 3,padding=1)
-
-    def forward(self, x4,xr,xb):
-        BiggerSize=xb.size()
-        k=F.interpolate(self.conv3_1(x4), size=BiggerSize[2:], mode='bilinear', align_corners=True)
-        v=self.conv3_2(xr)
-        q=nn.Sigmoid()(v)
-        xr_3=q*k+v
-        out=self.branch0(torch.cat([xr_3,xb],dim=1))+xr
-        return out
-
 
 class SGCN(nn.Module):
     def __init__(self, plane):
@@ -272,7 +250,7 @@ class SGM_s(nn.Module):
                                 for _ in range(self.guideLayers)]
         self.boundAwares = nn.ModuleList(self.boundAwares)
 
-        self.gAwares = [ EGCN(in_channels=inchannels[i]) for i in range(self.guideLayers)]
+        self.gAwares = [DGCN(channel) for i in range(self.guideLayers)]
         self.gAwares = nn.ModuleList(self.gAwares)
 
         self.bound_out_pre = [nn.Sequential(
@@ -333,17 +311,18 @@ class SGM_s(nn.Module):
 
             seg_edge, seg_body = self.boundAwares[i](last_seg_feat, low_feat)  
 
-
             high_fine = self.HR[i](seg_body)*F.interpolate(self.reduceBots[i](allEncode[i]), size=BiggerSize[2:], mode='bilinear',
                                       align_corners=True)
             seg_body = self.binary_fuse[i](torch.cat([seg_body, high_fine], dim=1))  
             seg_body_pre = self.binary_out_pre[i](seg_body)
+
+
             seg_binary_out = F.interpolate(self.binary_out[i](seg_body_pre), size=outputSize,
                                          mode='bilinear', align_corners=True)  
             seg_binarys.append(seg_body_pre)
             seg_binary_outs.append(nn.Sigmoid()(seg_binary_out))
 
-            seg_edge_pre = self.bound_out_pre[i](seg_edge)  
+            seg_edge_pre = self.bound_out_pre[i](seg_edge)
 
             seg_bound_out_pre1 = self.bound_out_ff[i](seg_edge_pre)  
             seg_bound_out = F.interpolate(seg_bound_out_pre1, size=outputSize,
@@ -352,8 +331,7 @@ class SGM_s(nn.Module):
             seg_bound_outs.append(nn.Sigmoid()(seg_bound_out))
 
             seg_out = seg_body + seg_edge
-            seg_out = self.gAwares[i](allEncode[i],seg_out,seg_edge_pre)
-
+            seg_out = self.gAwares[i](seg_out)
             if i >= self.guideLayers - 1:
                 seg_final_pre = self.semantic_out_pre[i](torch.cat([final_fuse_feat, seg_out], dim=1))
             else:
@@ -412,20 +390,6 @@ if __name__ == '__main__':
     img = torch.randn(1, 3, 480, 640).cuda()
     depth = torch.randn(1, 3, 480, 640).cuda()
     model = MGSGNet_S().to(torch.device("cuda:0"))
-    Total_params = 0
-    Trainable_params = 0
-    NonTrainable_params = 0
-    import numpy as np
-    for param in model.parameters():
-        mulValue = np.prod(param.size())
-        Total_params += mulValue
-        if param.requires_grad:
-            Trainable_params += mulValue
-        else:
-            NonTrainable_params += mulValue
-    print(f'Total params: {Total_params}')
-    print(f'Trainable params: {Trainable_params}')
-    print(f'Non-trainable params: {NonTrainable_params}')
     out = model(img, depth)
     for i in range(len(out[0])):
         print(out[0][i].shape)
