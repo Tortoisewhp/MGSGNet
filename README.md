@@ -2,7 +2,7 @@ MGSGNet-S*
 
 **Motivation Figure1**
 
-![](https://github.com/Tortoisewhp/MGSGNet/blob/main/images/1.png)
+![](https://github.com/Tortoisewhp/MGSGNet/blob/main/images/motivate.jpg)
 
 **Therefore, we propose CAFM, SGM**
 
