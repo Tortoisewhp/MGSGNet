@@ -11,7 +11,6 @@ from toolbox import class_to_RGB, load_ckpt, save_ckpt
 from toolbox.datasets.irseg import IRSeg
 
 def evaluate(logdir, save_predict=False, options=['val', 'test', 'test_day', 'test_night'], prefix='',save_PredictImageDirname='MGSGNet_teacher'):
-    # 加载配置文件cfg
     cfg = None
     for file in os.listdir(logdir):
         if file.endswith('.json'):
@@ -62,7 +61,7 @@ def evaluate(logdir, save_predict=False, options=['val', 'test', 'test_day', 'te
 
                 if save_predict:
                     predict = predict.squeeze(0)  # [1, h, w] -> [h, w]
-                    predict = class_to_RGB(predict, N=len(cmap), cmap=cmap)  # 如果数据集没有给定cmap,使用默认cmap
+                    predict = class_to_RGB(predict, N=len(cmap), cmap=cmap)  
                     predict = Image.fromarray(predict)
                     predict.save(os.path.join(save_path, sample['label_path'][0]))
 
