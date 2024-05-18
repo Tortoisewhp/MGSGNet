@@ -20,3 +20,5 @@ Network prediction The test code for the test set and validation set is evaluate
 The link to get the image of the experimental results for the network graph test: https://pan.baidu.com/s/16uXkO40BkM6mWL-E06LOlw 
 Extraction code: MGSG
 
+generate Depth map link:https://pan.baidu.com/s/19ykoFqOWBerBENlONPerOw 
+Extraction code: MGSG
