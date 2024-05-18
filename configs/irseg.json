@@ -26,6 +26,7 @@
     "lr_power": 0.9,
     "epochs": 300,
 
+    
     "loss": "crossentropy",
     "class_weight": "enet"
 }
