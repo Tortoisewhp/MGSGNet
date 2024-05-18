@@ -18,22 +18,26 @@ class BasicConv2d(nn.Module):
         x = self.conv(x)
         x = self.bn(x)
         return x
-
 class CAFM(nn.Module):
     def __init__(self,channel):
         super(CAFM, self).__init__()
         self.channel=channel
         self.Rmlp=nn.Conv2d(self.channel,1,1,1,0)
         self.Dmlp = nn.Conv2d(self.channel, 1, 1, 1, 0)
+        self.auxmlp = nn.Conv2d(self.channel, 1, 1, 1, 0)
         self.Rpa=nn.Linear(26*26,self.channel)
         self.Dpa = nn.Linear(26*26,self.channel)
-    def forward(self, rgbFeature,depthFeature):
+    def forward(self, rgbFeature,depthFeature,x_auxFeature):
+
         b,c,h,w=rgbFeature.shape
 
         thea=self.Rmlp(rgbFeature)
         beta = self.Dmlp(depthFeature)
+        betaAux = self.auxmlp(x_auxFeature)
         thea=F.interpolate(thea,size=(26, 26), mode='bilinear')
         beta = F.interpolate(beta, size=(26, 26), mode='bilinear')
+        betaAux = F.interpolate(betaAux, size=(26, 26), mode='bilinear')
+        beta=beta*betaAux
         rgbthea=nn.Tanh()(thea+beta)
         depthbeta=nn.Tanh()(thea+beta)
         rgbM=torch.matmul(thea.reshape(b,1,26*26).permute(0,2,1),rgbthea.reshape(b,1,26*26))
@@ -344,6 +348,8 @@ class MGSGNet_T(nn.Module):
         self.rgb.init_weights("/home/wby/Desktop/MGSGNet/toolbox/models/MGSGNet/segformer/pretrained/mit_b4.pth")
         self.depth = mit_b4()
         self.depth.init_weights("/home/wby/Desktop/MGSGNet/toolbox/models/MGSGNet/segformer/pretrained/mit_b4.pth")
+        self.depthaux = mit_b4()
+        self.depthaux.init_weights("/home/wby/Desktop/MGSGNet/toolbox/models/MGSGNet/segformer/pretrained/mit_b4.pth")
         self.cafm1=CAFM(64)
         self.cafm2 = CAFM(128)
         self.cafm3 = CAFM(320)
@@ -352,10 +358,11 @@ class MGSGNet_T(nn.Module):
         self.nlc = NLC(512,512)
         self.sgm = SGM_t(channel)
 
-    def forward(self, x, x_depth):
+    def forward(self, x, x_depth,x_auxFeature):
 
         x = self.rgb.forward_features(x)
         x_depth = self.depth.forward_features(x_depth)
+        x_depth_aux=self.depthaux.forward_features(x_auxFeature)
         #stage1
         x1 = x[0]
         x1_depth = x_depth[0]
@@ -369,10 +376,10 @@ class MGSGNet_T(nn.Module):
         x4_1 = x[3]
         x4_1_depth = x_depth[3]
         #fused and decoder
-        x1_1 = self.cafm1(x1, x1_depth)
-        x2_1 = self.cafm2(x2, x2_depth)
-        x3_1 = self.cafm3(x3_1, x3_1_depth)
-        x4_1 = self.cafm4(x4_1, x4_1_depth)
+        x1_1 = self.cafm1(x1, x1_depth,x_depth_aux[0])
+        x2_1 = self.cafm2(x2, x2_depth,x_depth_aux[1])
+        x3_1 = self.cafm3(x3_1, x3_1_depth,x_depth_aux[2])
+        x4_1 = self.cafm4(x4_1, x4_1_depth,x_depth_aux[3])
         x4_2 = self.nlc(x4_1)
         y = self.sgm(x4_2,x4_1,x3_1,x2_1, x1_1)
         return y
@@ -381,22 +388,9 @@ class MGSGNet_T(nn.Module):
 
 if __name__ == '__main__':
     img = torch.randn(1, 3, 480 ,640).cuda()
+    thermal = torch.randn(1, 3, 480, 640).cuda()
     depth = torch.randn(1, 3, 480 ,640).cuda()
     model = MGSGNet_T().to(torch.device("cuda:0"))
-    Total_params = 0
-    Trainable_params = 0
-    NonTrainable_params = 0
-    import numpy as np
-    for param in model.parameters():
-        mulValue = np.prod(param.size())
-        Total_params += mulValue
-        if param.requires_grad:
-            Trainable_params += mulValue
-        else:
-            NonTrainable_params += mulValue
-    print(f'Total params: {Total_params}')
-    print(f'Trainable params: {Trainable_params}')
-    print(f'Non-trainable params: {NonTrainable_params}')
-    out = model(img,depth)
+    out = model(img,thermal,depth)
     for i in range(len(out[0])):
         print(out[0][i].shape)
